@@ -9,6 +9,49 @@ auto application_context::set_steam_path(const std::string &path) -> void
 	loginusers_path = steam_path / "steam"s / "config"s / "loginusers.vdf"s;
 }
 
+auto application_context::load_loginusers() -> void
+{
+	users.clear();
+
+	auto loginusers = get_loginusers();
+	if (!loginusers)
+	{
+		DEBUG_LOG("loginusers is nullptr");
+		return;
+	}
+
+	for (auto user : *loginusers->at("users"))
+	{
+		users.push_back(steam_user(user));
+	}
+
+	delete loginusers;
+}
+
+auto application_context::save_loginusers() -> void
+{
+	auto loginusers = new vdf::list();
+	loginusers->key = "users";
+
+	for (const auto &user : users)
+	{
+		auto loginuser = new vdf::list();
+		loginuser->key = std::to_string(user.steamid);
+		loginuser->push_back(new vdf::value("AccountName", user.account_name));
+		loginuser->push_back(new vdf::value("PersonaName", user.persona_name));
+		loginuser->push_back(new vdf::value("RememberPassword", user.remember_password ? "1" : "0"));
+		loginuser->push_back(new vdf::value("MostRecent", user.most_recent ? "1" : "0"));
+		loginuser->push_back(new vdf::value("Timestamp", std::to_string(user.timestamp)));
+		loginusers->push_back(loginuser);
+	}
+
+	auto wrapper = new vdf::list();
+	wrapper->push_back(loginusers);
+	set_loginusers(wrapper);
+
+	delete wrapper;
+}
+
 auto application_context::get_registry() -> vdf::object*
 {
 	return vdf::read_file(registry_path);
@@ -29,25 +72,18 @@ auto application_context::set_loginusers(const vdf::object *loginusers_tree) -> 
 	return vdf::write_file(loginusers_path, loginusers_tree);
 }
 
-auto application_context::loginuser_exists(const std::string &account_name) -> bool
+auto application_context::loginuser_exists(const steamid_t steamid) -> bool
 {
-	auto loginusers = get_loginusers();
-	if (!loginusers)
-	{
-		DEBUG_LOG("loginusers is nullptr");
-		return false;
-	}
+	load_loginusers();
 
-	for (auto user : *loginusers->at("users"))
+	for (const auto &user : users)
 	{
-		if (user->at("AccountName")->val() == account_name)
+		if (user.steamid == steamid)
 		{
-			delete loginusers;
 			return true;
 		}
 	}
 
-	delete loginusers;
 	return false;
 }
 
@@ -70,33 +106,25 @@ auto application_context::get_all_account_names() -> std::vector<std::string>
 	return account_names;
 }
 
-auto application_context::set_most_recent(const std::string &account_name) -> bool
+auto application_context::set_most_recent(const steamid_t steamid) -> bool
 {
 	bool account_exists = false;
 
-	auto loginusers = get_loginusers();
-	if (!loginusers)
+	load_loginusers();
+	for (auto &user : users)
 	{
-		DEBUG_LOG("loginusers is nullptr");
-		return false;
-	}
-
-	for (auto user : *loginusers->at("users"))
-	{
-		if (user->at("AccountName")->val() == account_name)
+		if (user.steamid == steamid)
 		{
-			user->at("MostRecent")->val() = "1";
+			user.most_recent = true;
 			account_exists = true;
 		}
 		else
 		{
-			user->at("MostRecent")->val() = "0";
+			user.most_recent = false;
 		}
 	}
-	set_loginusers(loginusers);
+	save_loginusers();
 	
-	delete loginusers;
-
 	return account_exists;
 }
 
@@ -123,9 +151,9 @@ auto application_context::get_most_recent() -> std::string
 	return "";
 }
 
-auto application_context::set_auto_login_user(const std::string &account_name) -> bool
+auto application_context::set_auto_login_user(const steamid_t steamid) -> bool
 {
-	if (!loginuser_exists(account_name))
+	if (!loginuser_exists(steamid))
 	{
 		return false;
 	}
@@ -137,7 +165,7 @@ auto application_context::set_auto_login_user(const std::string &account_name) -
 		return false;
 	}
 
-	registry->at("Registry", "HKCU", "Software", "Valve", "Steam", "AutoLoginUser")->val() = account_name;
+	registry->at("Registry", "HKCU", "Software", "Valve", "Steam", "AutoLoginUser")->val() = get_account_name_by_steamid(steamid);
 	set_registry(registry);
 	
 	delete registry;
@@ -145,9 +173,9 @@ auto application_context::set_auto_login_user(const std::string &account_name) -
 	return true;
 }
 
-auto application_context::set_logged_in_steam_account(const std::string &account_name) -> bool
+auto application_context::set_logged_in_steam_account(const steamid_t steamid) -> bool
 {
-	return set_most_recent(account_name) && set_auto_login_user(account_name);
+	return set_most_recent(steamid) && set_auto_login_user(steamid);
 }
 
 auto application_context::restart_steam() -> bool
@@ -164,4 +192,52 @@ auto application_context::restart_steam() -> bool
 
 	// run the script
 	return system(("bash "s + filename).c_str()) == 0;
+}
+
+auto application_context::get_steamid_by_account_name(const std::string &name) -> steamid_t
+{
+	load_loginusers();
+
+	for (const auto &user : users)
+	{
+		if (user.account_name == name)
+		{
+			return user.steamid;
+		}
+	}
+
+	DEBUG_LOG("No user with account name '" << name << "' found");
+	return 0;
+}
+
+auto application_context::get_steamid_by_persona_name(const std::string &name) -> steamid_t
+{
+	load_loginusers();
+
+	for (const auto &user : users)
+	{
+		if (user.persona_name == name)
+		{
+			return user.steamid;
+		}
+	}
+
+	DEBUG_LOG("No user with persona name '" << name << "' found");
+	return 0;
+}
+
+auto application_context::get_account_name_by_steamid(const steamid_t steamid) -> std::string
+{
+	load_loginusers();
+
+	for (const auto &user : users)
+	{
+		if (user.steamid == steamid)
+		{
+			return user.account_name;
+		}
+	}
+
+	DEBUG_LOG("No user with steamid '" << steamid << "' found");
+	return "";
 }

@@ -11,10 +11,13 @@ namespace vdf
 class list final : public object
 {
 public:
+	list() = default;
 	list(const std::vector<object*> &objects);
 	~list();
 
 public:
+	auto push_back(vdf::object *object) -> void;
+
 	auto begin() -> std::vector<object*>::iterator;
 	auto end() -> std::vector<object*>::iterator;
 

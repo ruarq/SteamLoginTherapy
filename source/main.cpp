@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 	const auto account_name = argv[optind];
 	if (app_ctx.get_most_recent() != account_name)
 	{
-		if (!app_ctx.set_logged_in_steam_account(account_name))
+		if (!app_ctx.set_logged_in_steam_account(app_ctx.get_steamid_by_account_name(account_name)))
 		{
 			std::cout << "No account name matches '" << argv[optind] << "'\n";
 			return 1;

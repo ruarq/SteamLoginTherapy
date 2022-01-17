@@ -19,6 +19,11 @@ list::~list()
 	}
 }
 
+auto list::push_back(vdf::object *object) -> void
+{
+	objects.push_back(object);
+}
+
 auto list::begin() -> std::vector<object*>::iterator
 {
 	return objects.begin();

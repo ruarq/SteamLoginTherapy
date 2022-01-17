@@ -10,7 +10,5 @@ do
 done
 
 steam &>/dev/null &
-res = $?
 disown $!
-exit $res
 )";
