@@ -58,6 +58,16 @@ auto object::end() -> std::vector<object*>::iterator
 	return as_list()->end();
 }
 
+auto object::begin() const -> std::vector<object*>::const_iterator
+{
+	return as_list()->begin();
+}
+
+auto object::end() const -> std::vector<object*>::const_iterator
+{
+	return as_list()->end();
+}
+
 auto object::at(const size_t index) -> object*
 {
 	return as_list()->at(index);

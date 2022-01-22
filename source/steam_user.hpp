@@ -9,13 +9,18 @@ using steamid_t = uint64_t;
 class steam_user final
 {
 public:
-	explicit steam_user(const vdf::object *user_tree);
+	steam_user() = default;
+	explicit steam_user(const vdf::object *user_vdf);
 
 public:
-	steamid_t steamid;
+	auto from(const vdf::object *user_vdf) -> bool;
+	auto to_vdf() const -> vdf::object*;
+
+public:
+	steamid_t steamid = 0;
 	std::string account_name;
 	std::string persona_name;
-	bool remember_password;
-	bool most_recent;
-	time_t timestamp;
+	bool remember_password = false;
+	bool most_recent = false;
+	time_t timestamp = 0;
 };

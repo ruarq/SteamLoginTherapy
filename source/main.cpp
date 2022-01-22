@@ -4,8 +4,9 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "application_context.hpp"
-#include "application_config.hpp"
+#include "application_info.hpp"
+#include "steam_user_database.hpp"
+#include "restart_steam.sh.hpp"
 
 using namespace std::string_literals;
 
@@ -63,18 +64,45 @@ auto get_steam_path() -> std::string
 	return "";
 }
 
-int main(int argc, char **argv)
+auto get_registry_path(const std::string &steam_path) -> std::string
 {
-	application_context app_ctx;
+	return steam_path + "/registry.vdf"s;
+}
 
+auto get_loginusers_path(const std::string &steam_path) -> std::string
+{
+	return steam_path + "/steam/config/loginusers.vdf"s;
+}
+
+auto restart_steam() -> bool
+{
+	const auto filename = std::filesystem::temp_directory_path() / "restart_steam.sh"s;
+	std::ofstream script(filename);
+	script << restart_steam_sh;
+	script.close();
+
+	return system(("bash "s + filename.string()).c_str());
+}
+
+auto main(int argc, char **argv) -> int
+{
 	auto steam_path = get_steam_path();
-	if (steam_path == "")
+
+	bool steam_path_specified = false;
+	for (int i = 1; i < argc; ++i)
+	{
+		if ("-p"s == argv[i] || "--steam-path"s == argv[i])
+		{
+			steam_path_specified = true;
+			break;
+		}
+	}
+
+	if (steam_path == "" && !steam_path_specified)
 	{
 		std::cout << "Couldn't find steam directory. Please specify using the --steam-path option.\n";
 		return 1;
 	}
-
-	app_ctx.set_steam_path(steam_path);
 
 	option long_options[] = {
 		{ "list",		no_argument,		nullptr, 'l' },
@@ -91,10 +119,17 @@ int main(int argc, char **argv)
 		{
 			case 'l':
 			{
-				const auto account_names = app_ctx.get_all_account_names();
-				for (auto &account_name : account_names)
+				steam_user_database db;
+				if (!db.load(steam_path))
 				{
-					std::cout << account_name << "\n";
+					std::cout << "Couldn't load database from path '" << steam_path << "'\n";
+					return 1;
+				}
+
+				const auto &users = db.query_all_users();
+				for (auto &user : users)
+				{
+					std::cout << user.account_name << " [" << user.persona_name << "]\n";
 				}
 				return 0;
 			}
@@ -104,7 +139,7 @@ int main(int argc, char **argv)
 				return 0;
 
 			case 'p':
-				app_ctx.set_steam_path(optarg);
+				steam_path = optarg;
 				std::cout << "Using alternative path: " << optarg << "\n";
 				break;
 
@@ -122,16 +157,40 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	const auto account_name = argv[optind];
-	if (app_ctx.get_most_recent() != account_name)
+	steam_user_database db;
+	if (!db.load(steam_path))
 	{
-		if (!app_ctx.set_logged_in_steam_account(app_ctx.get_steamid_by_account_name(account_name)))
+
+		std::cout << "Couldn't load database from path '" << steam_path << "'\n";
+		return 1;
+	}
+	
+	const auto account_name = argv[optind];
+	if (db.query_most_recent()->account_name != account_name)
+	{
+		if (!db.query(account_name, ACCOUNT_NAME))
 		{
 			std::cout << "No account name matches '" << argv[optind] << "'\n";
 			return 1;
 		}
 
-		if (!app_ctx.restart_steam())
+		auto registry = vdf::read_file(get_registry_path(steam_path));
+		if (!registry)
+		{
+			std::cout << "Couldn't load registry, which means loginuser can't be changed\n";
+			return 1;
+		}
+
+		registry->at("Registry", "HKCU", "Software", "Valve", "Steam", "AutoLoginUser")->val() = account_name;
+		if (!vdf::write_file(get_registry_path(steam_path), registry))
+		{
+			std::cout << "Couldn't write registry file.\n";
+			delete registry;
+			return 1;
+		}
+		delete registry;
+
+		if (!restart_steam())
 		{
 			std::cout << "Couldn't restart steam\n";
 			return 1;
