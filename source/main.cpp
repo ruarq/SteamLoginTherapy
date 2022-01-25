@@ -76,12 +76,19 @@ auto get_loginusers_path(const std::string &steam_path) -> std::string
 
 auto restart_steam() -> bool
 {
-	const auto filename = std::filesystem::temp_directory_path() / "restart_steam.sh"s;
+	const std::string filename = std::filesystem::temp_directory_path() / "restart_steam.sh"s;
 	std::ofstream script(filename);
-	script << restart_steam_sh;
+
+	if (!script.is_open())
+	{
+		std::cout << "Couldn't write file '" << filename << "'\n";
+		return false;
+	}
+
+	script << restart_steam_sh << "\n";
 	script.close();
 
-	return system(("bash "s + filename.string()).c_str());
+	return system(("bash "s + filename).c_str()) == 0;
 }
 
 auto main(int argc, char **argv) -> int
@@ -97,7 +104,7 @@ auto main(int argc, char **argv) -> int
 	steam_user_database db;
 	if (!db.load(get_loginusers_path(steam_path)))
 	{
-		std::cout << "Couldn't load database from file '" << steam_path << "'\n";
+		std::cout << "Couldn't load database from file '" << get_loginusers_path(steam_path) << "'\n";
 		return 1;
 	}
 
@@ -171,6 +178,17 @@ auto main(int argc, char **argv) -> int
 			std::cout << "Couldn't restart steam\n";
 			return 1;
 		}
+	}
+	else
+	{
+		std::cout << account_name << " is already most recent user\n";
+		return 0;
+	}
+
+	if (!db.save(get_loginusers_path(steam_path)))
+	{
+		std::cout << "Couldn't save database to file '" << get_loginusers_path(steam_path) << "'\n";
+		return 1;
 	}
 
 	return 0;
