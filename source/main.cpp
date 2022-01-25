@@ -10,6 +10,12 @@
 
 using namespace std::string_literals;
 
+const auto options_info = R"(Options:
+	--list, -l				List all accounts found by the program
+	--version, -v			Display program version information
+	--help, -h				Display this information
+)";
+
 auto get_home_dir() -> std::string
 {
 	return getenv("HOME");
@@ -97,7 +103,7 @@ auto main(int argc, char **argv) -> int
 
 	if (steam_path == "")
 	{
-		std::cout << "Couldn't find steam directory. Please specify it in the configuration file.\n";
+		std::cout << "Couldn't find steam directory. Please specify it in the configuration file\n";
 		return 1;
 	}
 
@@ -111,12 +117,13 @@ auto main(int argc, char **argv) -> int
 	option long_options[] = {
 		{ "list",		no_argument,		nullptr, 'l' },
 		{ "version",	no_argument,		nullptr, 'v' },
+		{ "help",		no_argument,		nullptr, 'h' },
 		{ nullptr,		0,					nullptr,  0  }
 	};
 
 	int long_opt;
 	int opt;
-	while ((opt = getopt_long(argc, argv, "lvp:", long_options, &long_opt)) != -1)
+	while ((opt = getopt_long(argc, argv, "lvh", long_options, &long_opt)) != -1)
 	{
 		switch (opt)
 		{
@@ -135,16 +142,19 @@ auto main(int argc, char **argv) -> int
 				return 0;
 
 			case '?':
+				return 1;
+
+			case 'h':
 			default:
-				// display help here
-				std::cout << "Unknown option\n";
+				std::cout << "Usage: " << argv[0] << " [options] account_name\n";
+				std::cout << options_info;
 				return 1;
 		}
 	}
 
 	if (optind >= argc)
 	{
-		std::cout << "Expected account name after options.\n";
+		std::cout << "Expected account name after options\n";
 		return 1;
 	}
 	
@@ -160,18 +170,24 @@ auto main(int argc, char **argv) -> int
 		auto registry = vdf::read_file(get_registry_path(steam_path));
 		if (!registry)
 		{
-			std::cout << "Couldn't load registry, which means loginuser can't be changed\n";
+			std::cout << "Couldn't load registry file\n";
 			return 1;
 		}
 
 		registry->at("Registry", "HKCU", "Software", "Valve", "Steam", "AutoLoginUser")->val() = account_name;
 		if (!vdf::write_file(get_registry_path(steam_path), registry))
 		{
-			std::cout << "Couldn't write registry file.\n";
+			std::cout << "Couldn't write registry file\n";
 			delete registry;
 			return 1;
 		}
 		delete registry;
+
+		if (!db.save(get_loginusers_path(steam_path)))
+		{
+			std::cout << "Couldn't save database to file '" << get_loginusers_path(steam_path) << "'\n";
+			return 1;
+		}
 
 		if (!restart_steam())
 		{
@@ -183,12 +199,6 @@ auto main(int argc, char **argv) -> int
 	{
 		std::cout << account_name << " is already most recent user\n";
 		return 0;
-	}
-
-	if (!db.save(get_loginusers_path(steam_path)))
-	{
-		std::cout << "Couldn't save database to file '" << get_loginusers_path(steam_path) << "'\n";
-		return 1;
 	}
 
 	return 0;
