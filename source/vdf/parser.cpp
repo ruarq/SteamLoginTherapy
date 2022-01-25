@@ -8,6 +8,12 @@ auto parser::parse(const std::string &vdf_string) -> object*
 	source = vdf_string;
 	pos = 0;
 
+	if (vdf_string.empty())
+	{
+		DEBUG_LOG("vdf_string is empty");
+		return nullptr;
+	}
+
 	auto root = new list({ parse_object() });
 	root->key = "";
 	
