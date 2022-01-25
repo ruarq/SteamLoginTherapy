@@ -138,7 +138,7 @@ auto main(int argc, char **argv) -> int
 			}
 
 			case 'v':
-				std::cout << APPNAME << " [" << argv[0] << "] v" << VERSION_STR << " (" << std::hex << VERSION << ")\n";
+				std::cout << APPNAME << " v" << VERSION_STR << " (" << std::hex << VERSION << ")\n";
 				return 0;
 
 			case '?':
