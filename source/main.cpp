@@ -86,28 +86,24 @@ auto restart_steam() -> bool
 
 auto main(int argc, char **argv) -> int
 {
-	auto steam_path = get_steam_path();
+	const auto steam_path = get_steam_path();
 
-	bool steam_path_specified = false;
-	for (int i = 1; i < argc; ++i)
+	if (steam_path == "")
 	{
-		if ("-p"s == argv[i] || "--steam-path"s == argv[i])
-		{
-			steam_path_specified = true;
-			break;
-		}
+		std::cout << "Couldn't find steam directory. Please specify it in the configuration file.\n";
+		return 1;
 	}
 
-	if (steam_path == "" && !steam_path_specified)
+	steam_user_database db;
+	if (!db.load(steam_path))
 	{
-		std::cout << "Couldn't find steam directory. Please specify using the --steam-path option.\n";
+		std::cout << "Couldn't load database from path '" << steam_path << "'\n";
 		return 1;
 	}
 
 	option long_options[] = {
 		{ "list",		no_argument,		nullptr, 'l' },
 		{ "version",	no_argument,		nullptr, 'v' },
-		{ "steam-path", required_argument,	nullptr, 'p' },
 		{ nullptr,		0,					nullptr,  0  }
 	};
 
@@ -119,13 +115,6 @@ auto main(int argc, char **argv) -> int
 		{
 			case 'l':
 			{
-				steam_user_database db;
-				if (!db.load(steam_path))
-				{
-					std::cout << "Couldn't load database from path '" << steam_path << "'\n";
-					return 1;
-				}
-
 				const auto &users = db.query_all_users();
 				for (auto &user : users)
 				{
@@ -138,11 +127,6 @@ auto main(int argc, char **argv) -> int
 				std::cout << APPNAME << " [" << argv[0] << "] " << VERSION_STR << "\n";
 				return 0;
 
-			case 'p':
-				steam_path = optarg;
-				std::cout << "Using alternative path: " << optarg << "\n";
-				break;
-
 			case '?':
 			default:
 				// display help here
@@ -154,14 +138,6 @@ auto main(int argc, char **argv) -> int
 	if (optind >= argc)
 	{
 		std::cout << "Expected account name after options.\n";
-		return 1;
-	}
-
-	steam_user_database db;
-	if (!db.load(steam_path))
-	{
-
-		std::cout << "Couldn't load database from path '" << steam_path << "'\n";
 		return 1;
 	}
 	
