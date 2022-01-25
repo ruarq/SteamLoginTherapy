@@ -8,6 +8,6 @@
 	static constexpr auto VERSION_MINOR = minor; \
 	static constexpr auto VERSION_PATCH = patch; \
 	static constexpr auto VERSION_STR = #major "." #minor "." #patch; \
-	static constexpr std::int32_t VERSION = (major << 16) + (minor << 8) + patch
+	static constexpr std::int64_t VERSION = ((std::int64_t)(major) << 32) + (minor << 16) + patch
 
 _VERSION_MACRO(0, 1, 0);
