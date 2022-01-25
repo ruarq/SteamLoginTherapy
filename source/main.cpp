@@ -95,9 +95,9 @@ auto main(int argc, char **argv) -> int
 	}
 
 	steam_user_database db;
-	if (!db.load(steam_path))
+	if (!db.load(get_loginusers_path(steam_path)))
 	{
-		std::cout << "Couldn't load database from path '" << steam_path << "'\n";
+		std::cout << "Couldn't load database from file '" << steam_path << "'\n";
 		return 1;
 	}
 
