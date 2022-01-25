@@ -158,47 +158,53 @@ auto main(int argc, char **argv) -> int
 		return 1;
 	}
 	
-	const auto account_name = argv[optind];
-	if (db.query_most_recent()->account_name != account_name)
+	const auto name = argv[optind];
+	auto name_type = ACCOUNT_NAME;
+	steam_user *user = nullptr;
+
+	// find out whether name is persona name or account name
+	if (user = db.query(name, PERSONA_NAME))
 	{
-		if (!db.query(account_name, ACCOUNT_NAME))
-		{
-			std::cout << "No account name matches '" << argv[optind] << "'\n";
-			return 1;
-		}
-
-		auto registry = vdf::read_file(get_registry_path(steam_path));
-		if (!registry)
-		{
-			std::cout << "Couldn't load registry file\n";
-			return 1;
-		}
-
-		registry->at("Registry", "HKCU", "Software", "Valve", "Steam", "AutoLoginUser")->val() = account_name;
-		if (!vdf::write_file(get_registry_path(steam_path), registry))
-		{
-			std::cout << "Couldn't write registry file\n";
-			delete registry;
-			return 1;
-		}
-		delete registry;
-
-		if (!db.save(get_loginusers_path(steam_path)))
-		{
-			std::cout << "Couldn't save database to file '" << get_loginusers_path(steam_path) << "'\n";
-			return 1;
-		}
-
-		if (!restart_steam())
-		{
-			std::cout << "Couldn't restart steam\n";
-			return 1;
-		}
+		name_type = PERSONA_NAME;
 	}
-	else
+	else if (!(user = db.query(name, ACCOUNT_NAME)))
 	{
-		std::cout << account_name << " is already most recent user\n";
+		std::cout << "No account/persona name matches '" << argv[optind] << "'\n";
+		return 1;
+	}
+
+	if (db.query_most_recent()->account_name == user->account_name)
+	{
+		std::cout << name << " is already most recent user\n";
 		return 0;
+	}
+
+	auto registry = vdf::read_file(get_registry_path(steam_path));
+	if (!registry)
+	{
+		std::cout << "Couldn't load registry file\n";
+		return 1;
+	}
+
+	registry->at("Registry", "HKCU", "Software", "Valve", "Steam", "AutoLoginUser")->val() = user->account_name;
+	if (!vdf::write_file(get_registry_path(steam_path), registry))
+	{
+		std::cout << "Couldn't write registry file\n";
+		delete registry;
+		return 1;
+	}
+	delete registry;
+
+	if (!db.save(get_loginusers_path(steam_path)))
+	{
+		std::cout << "Couldn't save database to file '" << get_loginusers_path(steam_path) << "'\n";
+		return 1;
+	}
+
+	if (!restart_steam())
+	{
+		std::cout << "Couldn't restart steam\n";
+		return 1;
 	}
 
 	return 0;
