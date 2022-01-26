@@ -21,7 +21,7 @@ auto get_home_dir() -> std::string
 	return getenv("HOME");
 }
 
-auto get_steam_path() -> std::string
+auto validate_steam_path(const std::string &steam_path) -> bool
 {
 	// folders we need
 	const std::filesystem::path sub_folders[] = {
@@ -35,33 +35,36 @@ auto get_steam_path() -> std::string
 		"steam/config/loginusers.vdf"s
 	};
 
+	// check files
+	for (const auto &file : files)
+	{
+		if (!std::filesystem::exists(steam_path / file))
+		{
+			return false;
+		}
+	}
+
+	// check dirs
+	for (const auto &folder : sub_folders)
+	{
+		if (!std::filesystem::exists(steam_path / folder))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+auto get_steam_path() -> std::string
+{
 	const std::filesystem::path possible_locations[] = {
 		get_home_dir() + "/.steam"s
 	};
 
 	for (const auto &location : possible_locations)
 	{
-		bool requirements_met = true;
-
-		// check files
-		for (const auto &file : files)
-		{
-			if (!std::filesystem::exists(location / file))
-			{
-				requirements_met = false;
-			}
-		}
-
-		// check dirs
-		for (const auto &folder : sub_folders)
-		{
-			if (!std::filesystem::exists(location / folder))
-			{
-				requirements_met = false;
-			}
-		}
-
-		if (requirements_met)
+		if (validate_steam_path(location))
 		{
 			return location.string();
 		}
@@ -97,14 +100,45 @@ auto restart_steam() -> bool
 	return system(("bash "s + filename).c_str()) == 0;
 }
 
+auto config_read_steam_path() -> std::string
+{
+	const std::string filename = get_home_dir() + "/.config/steam_login_therapy/config"s;
+	std::ifstream file(filename);
+
+	if (!file.is_open())
+	{
+		std::cout << "Couldn't read file '" << filename << "'\n";
+		return ""s; 
+	}
+
+	std::string steam_path;
+	file >> steam_path;
+
+	return steam_path;
+}
+
 auto main(int argc, char **argv) -> int
 {
-	const auto steam_path = get_steam_path();
+	auto steam_path = get_steam_path();
 
 	if (steam_path == "")
 	{
-		std::cout << "Couldn't find steam directory. Please specify it in the configuration file\n";
-		return 1;
+		// try to read from config
+		steam_path = config_read_steam_path();
+
+		// no config exists
+		if (steam_path.empty())
+		{
+			std::cout << "Couldn't find steam directory. Please specify it in the configuration file\n";
+			return 1;
+		}
+
+		// validate path
+		if (!validate_steam_path(steam_path))
+		{
+			std::cout << "'" << steam_path << "' is not recognized as steam root directory. Please check your config file\n";
+			return 1;
+		}
 	}
 
 	steam_user_database db;
