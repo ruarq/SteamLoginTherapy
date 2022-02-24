@@ -10,7 +10,7 @@ fi
 
 # dirs where to put binary in order "most preferred to least preferred"
 dirs=(
-	"$HOME/.local/bin"
+	# "$HOME/.local/bin"
 )
 
 for dir in ${dirs[@]}
@@ -31,6 +31,6 @@ done
 
 echo "No valid install directory has been found."
 echo "Please run with './install.sh <directory>'"
-echo "where directory is the directory you want to install"
-echo "SteamLoginTherapy to."
+echo "where '<directory>' is the directory you want"
+echo "to install SteamLoginTherapy to."
 exit 1
