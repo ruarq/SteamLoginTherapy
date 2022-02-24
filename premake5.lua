@@ -1,4 +1,4 @@
-workspace "RuarqsSteamAccountSwitcherForLinux"
+workspace "SteamLoginTherapy"
 	configurations { "debug", "release" }
 
 project "steam_login"
