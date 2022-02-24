@@ -6,9 +6,7 @@ project "steam_login"
 	language "C++"
 	cppdialect "C++17"
 
-	targetdir "bin/%{cfg.buildcfg}"
-
-	files { "source/**.hpp", "source/**.cpp" }
+	files { "src/**.hpp", "src/**.cpp" }
 
 	filter { "configurations:debug" }
 		defines { "DEBUG" }
