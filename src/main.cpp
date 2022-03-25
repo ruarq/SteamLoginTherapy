@@ -1,7 +1,6 @@
 #include <iostream>
 #include <filesystem>
 #include <string>
-#include <unistd.h>
 #include <getopt.h>
 
 #include "application_info.hpp"
@@ -25,14 +24,23 @@ auto validate_steam_path(const std::string &steam_path) -> bool
 {
 	// folders we need
 	const std::filesystem::path sub_folders[] = {
+#if defined(SLT_OS_LINUX)
 		"steam"s,
 		"steam/config"s
+#elif defined(SLT_OS_MACOSX)
+        "config"s
+#endif
 	};
 
 	// files we need
 	const std::filesystem::path files[] = {
 		"registry.vdf"s,
-		"steam/config/loginusers.vdf"s
+
+#if defined(SLT_OS_LINUX)
+		"steam/config/loginusers.vdf"s,
+#elif defined(SLT_OS_MACOSX)
+		"config/loginusers.vdf"s,
+#endif
 	};
 
 	// check files
@@ -58,8 +66,11 @@ auto validate_steam_path(const std::string &steam_path) -> bool
 
 auto get_steam_path() -> std::string
 {
+    const auto home_dir = get_home_dir();
+
 	const std::filesystem::path possible_locations[] = {
-		get_home_dir() + "/.steam"s
+		home_dir + "/.steam"s,							// Linux
+        home_dir + "/Library/Application Support/Steam"	// MacOSX
 	};
 
 	for (const auto &location : possible_locations)
@@ -80,7 +91,11 @@ auto get_registry_path(const std::string &steam_path) -> std::string
 
 auto get_loginusers_path(const std::string &steam_path) -> std::string
 {
+#if defined(SLT_OS_LINUX)
 	return steam_path + "/steam/config/loginusers.vdf"s;
+#elif defined(SLT_OS_MACOSX)
+	return steam_path + "/config/loginusers.vdf"s;
+#endif
 }
 
 auto restart_steam() -> bool
@@ -194,14 +209,14 @@ auto main(int argc, char **argv) -> int
 	
 	const auto name = argv[optind];
 	auto name_type = ACCOUNT_NAME;
-	steam_user *user = nullptr;
 
 	// find out whether name is persona name or account name
-	if (user = db.query(name, PERSONA_NAME))
+    steam_user *user = db.query(name, PERSONA_NAME);
+	if (user)
 	{
 		name_type = PERSONA_NAME;
 	}
-	else if (!(user = db.query(name, ACCOUNT_NAME)))
+	else
 	{
 		std::cout << "No account/persona name matches '" << argv[optind] << "'\n";
 		return 1;
