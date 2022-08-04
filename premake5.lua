@@ -3,6 +3,7 @@ workspace "SteamLoginTherapy"
 
 project "SteamLogin"
 	kind "ConsoleApp"
+	targetname "steam-login"
 	language "C++"
 	cppdialect "C++20"
 
